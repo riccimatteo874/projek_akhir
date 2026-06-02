@@ -1,4 +1,4 @@
-from fungsi_manual import minimum
+from fungsi_manual import minimum, man_isdigit
 # CLASS PLAYER, ENEMY, ITEM, SKILL
 class Entitas:
   def __init__(self, nama, hp=100, attack=10):
@@ -142,6 +142,20 @@ class PlayerList(): # SINGLE LINKED LIST
         return temp.player
       temp = temp.next
     return None
+  
+  def hapus_pemain(self, user):
+    temp = self.head
+    prev = None
+    while temp:
+      if temp.player.nama == user:
+        if prev:
+          prev.next = temp.next
+        else:
+          self.head = temp.next
+        return True
+      prev = temp
+      temp = temp.next
+    return False
 #================================================================================================
 
 # CLASS UNTUK HISTORY PERMAINAN
@@ -240,6 +254,14 @@ class Login(): # hash table
     index = self.hash(username)
     for item in self.table[index]:
       if item[0] == username and item[1] == pw:
+        return True
+    return False
+  
+  def hapus_akun(self, username):
+    index = self.hash(username)
+    for i, item in enumerate(self.table[index]):
+      if item[0] == username:
+        self.table[index].pop(i) # Hapus data dari list dalam Hash Table
         return True
     return False
 #====================================================================================================
@@ -421,3 +443,436 @@ def get_skills(node, result):
     get_skills(node.right, result)
   return result
 #==================================================================================================
+
+# FUNGSI UNTUK BATTLE SYSTEM
+def battle_system(player, enemy, history):
+  turns = Battle()
+  turns.tambah_unit(player)
+  turns.tambah_unit(enemy)
+  stack_aksi = []
+
+  print(f'\n⚔️ Bertarung melawan {enemy.nama} ⚔️')
+  while player.hp > 0 and enemy.hp > 0:
+    unit = turns.current.entitas
+    if unit.nama == player.nama:
+      print(f'\nStatus:\nHp: {unit.hp}/{unit.max_hp} Attack: {unit.attack}')
+      print('1. Serang / 2. Skill / 3. Item / 4. Undo')
+      pilih = input('Aksi: ')
+
+      snapshot_status = (player.hp, player.attack, enemy.hp, list(player.inventory.items))
+
+      if pilih == '1':
+        enemy.hp -= unit.attack
+        log = f'{unit.nama} menyerang {enemy.nama} -{unit.attack} hp'
+        stack_aksi.append((snapshot_status, log)) 
+
+      elif pilih == '2':
+        skills = []
+        get_skills(unit.skill_tree, skills)
+        print('\n--- Skill ---')
+        for i, skl in enumerate(skills):
+          print(f'{i+1}. {skl}')
+        print('0. Batal')
+        pilihan_skill = input('Gunakan skill? ')
+        if man_isdigit(pilihan_skill) and 0 < int(pilihan_skill) <= len(skills):
+          nama_skill = skills[int(pilihan_skill)-1]
+
+          if 'Lvl 1' in nama_skill:
+            damage = int(unit.attack * 1.5)
+            enemy.hp -= damage
+            log = f'{unit.nama} menggunakan skill {nama_skill}, {enemy.nama} terkena {damage} damage.'
+          
+          elif 'Lvl 3' in nama_skill:
+            if 'Heal' in nama_skill:
+              heal = int(unit.max_hp * 0.4)
+              unit.hp = minimum([unit.max_hp, unit.hp + heal])
+              log = f'{unit.nama} menggunakan {nama_skill}, memulihkan {heal} hp.'
+            else:
+              damage = int(unit.attack * 2.0)
+              enemy.hp -= damage
+              log = f'{unit.nama} menggunakan {nama_skill}, {enemy.nama} terkena {damage} damage.'
+          
+          elif 'Lvl 5' in nama_skill:
+            if 'Heal' in nama_skill:
+              heal = int(unit.max_hp * 0.7)
+              unit.hp = minimum([unit.max_hp, unit.hp + heal])
+              log = f'{unit.nama} menggunakan {nama_skill}, memulihkan {heal} hp.'
+            else:
+              damage = int(unit.attack * 3.0)
+              enemy.hp -= damage
+              log = f'{unit.nama} menggunakan {nama_skill}, {enemy.nama} terkena {damage} damage.'
+          
+          stack_aksi.append((snapshot_status, log)) 
+          print(f'>>>{log}')
+        
+        else:
+          continue
+
+      elif pilih == '3':
+        if not use_item(player):
+          continue
+
+        log = f'{unit.nama} menggunakan item dari tas.'
+        stack_aksi.append((snapshot_status, log))
+      
+      elif pilih == '4':
+        if stack_aksi:
+
+          data_lama, teks_log = stack_aksi.pop()
+          player.hp, player.attack, enemy.hp, tas_lama = data_lama
+          
+          player.inventory.items = list(tas_lama) 
+          
+          print(f'\n⏪ Membatalkan aksi: {teks_log}')
+          print(f'✨ Waktu diputar mundur! HP Player, HP Musuh, dan Isi Tas kembali seperti semula.')
+          continue
+        else:
+          print('\n❌ Belum ada aksi yang bisa di-undo!')
+          continue
+          
+      else:
+        continue
+    else:
+      player.hp -= unit.attack
+      print(f'{unit.nama} menyerang! Hp = {player.hp}')
+
+    turns.current = turns.current.next
+  
+  if player.hp > 0:
+    hadiah_exp = int(enemy.reward_gold * 0.8)
+    print(f'\n🎉 Kamu menang! Mendapat {enemy.reward_gold} Gold dan {hadiah_exp} Exp 🎉')
+    player.gold += enemy.reward_gold
+    player.exp += hadiah_exp
+    player.score += enemy.reward_gold
+    player.buruan.add(enemy.nama)
+    history.add_log(enemy.nama)
+
+    if player.exp >= 100:
+      player.level += 1
+      player.exp -= 100
+      player.max_hp += 20
+      player.hp = player.max_hp
+      player.attack += 5
+      print(f'Kamu naik level. Level saat ini: {player.level}')
+      menu_pilih_skill_baru(player)
+    
+  else:
+    print(f'\n💀 Kamu kalah 💀')
+
+  player.hp = player.max_hp
+  enemy.hp = enemy.max_hp
+#===============================================================================================================================
+
+# FUNGSI UNTUK MUAT GAME
+def muat_game(lala, listpemain):
+  try:
+      with open("database_pemain.txt", "r") as file:
+        for baris in file:
+          data = baris.strip().split(',')
+          
+          if len(data) == 7:
+            nama, pw, role, level, exp, gold, score = data
+
+            lala.register(nama, pw)
+
+            p_baru = Player(nama, role)
+            p_baru.level = int(level)
+            p_baru.exp = int(exp)
+            p_baru.gold = int(gold)
+            p_baru.score = int(score)
+
+            tambahan_lvl = p_baru.level - 1
+            p_baru.max_hp += (tambahan_lvl * 20)
+            p_baru.hp = p_baru.max_hp
+            p_baru.attack += (tambahan_lvl * 5)
+
+            listpemain.tambah_pemain(p_baru)
+                
+  except FileNotFoundError:
+    return
+#================================================================================================
+
+# FUNGSI SIMPAN GAME
+def simpan_game(lala, listpemain):
+    with open("database_pemain.txt", "w") as file:
+      temp = listpemain.head
+      while temp:
+        p = temp.player
+
+        password_user = ""
+        index = lala.hash(p.nama)
+        for item in lala.table[index]:
+            if item[0] == p.nama:
+                password_user = item[1]
+                break
+
+        file.write(f"{p.nama},{password_user},{p.role},{p.level},{p.exp},{p.gold},{p.score}\n")
+        temp = temp.next
+#===========================================================n=============================================================
+
+#FUNGSI UNTUK MENU ADMIN
+def menu_admin(lala, listpemain):
+  while True:
+    print("\n=== PANEL ADMIN ===")
+    print("1. Tambah Karakter (Register Player)")
+    print("2. Edit Karakter (Ubah Status)")
+    print("3. Hapus Karakter (Banned)")
+    print("4. Atur Level Permainan")
+    print("5. Melihat Data Pemain")
+    print("0. Keluar dari Panel Admin")
+    try:
+      opsi = int(input("Pilih opsi Admin: "))
+      
+      if opsi == 1:
+        print("\n-- Tambah Karakter Baru --")
+        user_baru = input("Username: ")
+        pas_baru = input("Password: ")
+        role = input("Role (fighter/tank/marksman): ")
+        if role in ['fighter', 'tank', 'marksman']:
+          if lala.register(user_baru, pas_baru):
+            listpemain.tambah_pemain(Player(user_baru, role))
+            print(f"Karakter {user_baru} berhasil diciptakan!")
+          else:
+            print("Username sudah terdaftar.")
+        else:
+          print("Role tidak valid!")
+          
+      elif opsi == 2:
+        print("\n-- Edit Karakter --")
+        user = input("Masukkan username yang ingin diedit: ")
+        p = listpemain.get_pemain(user)
+        if p:
+          print(f"Data saat ini: HP={p.max_hp}, Attack={p.attack}, Gold={p.gold}")
+          p.max_hp = int(input("Max HP baru: "))
+          p.hp = p.max_hp
+          p.attack = int(input("Attack baru: "))
+          p.gold = int(input("Gold baru: "))
+          print(f"Data karakter {user} berhasil diubah!")
+        else:
+          print("Karakter tidak ditemukan.")
+          
+      elif opsi == 3:
+        print("\n-- Hapus Karakter --")
+        user = input("Masukkan username yang ingin dihapus: ")
+        if listpemain.hapus_pemain(user) and lala.hapus_akun(user):
+          print(f"Karakter {user} telah dihapus dari sistem.")
+        else:
+          print("Karakter tidak ditemukan.")
+          
+      elif opsi == 4:
+        print("\n-- Atur Level --")
+        user = input("Masukkan username: ")
+        p = listpemain.get_pemain(user)
+        if p:
+          print(f"Level saat ini: {p.level}")
+          level_lama = p.level
+          level_baru = int(input("Ubah menjadi level: "))
+          selisih_level = level_baru - level_lama
+          p.max_hp += (selisih_level * 20)
+          p.hp = p.max_hp
+          p.attack += (selisih_level * 5)
+          if level_lama < 3 and level_baru >= 3:
+            p.level = 3
+            print(f"\n⚙️ [ADMIN] Wajib pilih skill Level 3 untuk {p.nama}:")
+            menu_pilih_skill_baru(p)
+            
+          if level_lama < 5 and level_baru >= 5:
+            p.level = 5
+            print(f"\n⚙️ [ADMIN] Wajib pilih skill Level 5 untuk {p.nama}:")
+            menu_pilih_skill_baru(p)
+          
+          p.level = level_baru 
+          print(f"✅ Level karakter {user} berhasil diatur menjadi {p.level} (Status HP, Attack, dan Skill Tree telah diperbarui).")
+        else:
+          print("❌ Karakter tidak ditemukan.")
+      elif opsi == 5:
+        print("\n-- Data Seluruh Pemain --")
+        temp = listpemain.head
+        if not temp:
+          print("Belum ada pemain di dalam database.")
+        else:
+          while temp:
+            p = temp.player
+            print(f"{p.nama} | Role: {p.role} | Lvl: {p.level} | Gold: {p.gold} | Skor: {p.score}")
+            temp = temp.next
+            
+      elif opsi == 0:
+        print("Keluar dari Panel Admin...")
+        break
+      else:
+        print("Pilihan tidak valid.")
+    except ValueError:
+      print("Harap masukkan angka yang benar!")
+#==============================================================================================
+
+# FUNGSI MAIN
+def main():
+  lala = Login()
+  listpemain = PlayerList()
+  history = GameHistory()
+  game_map = GameMap()
+  lokasi_aktif = 'Desa Petualang'
+  p_aktif = None
+  
+  muat_game(lala, listpemain)
+
+  bounty_board = BountyBoard()
+  
+  bounty_board.insert(Enemy("Laba-Laba Beracun", 85, 18, 80)) # Node Root
+  bounty_board.insert(Enemy("Kelelawar Gua", 45, 8, 35))
+  bounty_board.insert(Enemy("Golem Batu", 160, 28, 180))
+  bounty_board.insert(Enemy("Slime Hijau", 30, 5, 20))
+  bounty_board.insert(Enemy("Goblin Pengintai", 60, 12, 50))
+  bounty_board.insert(Enemy("Raja Slime (BOSS)", 70, 12, 60))
+  bounty_board.insert(Enemy("Raja Orc (BOSS)", 120, 22, 120))
+  bounty_board.insert(Enemy("Prajurit Kadal", 110, 20, 130))
+  bounty_board.insert(Enemy("Naga Hitam (BOSS)", 250, 35, 300))
+ 
+  while True:
+    if not p_aktif:
+      print("\n=== BATTLE ARENA ===")
+      print("1. Login\n2. Register\n3. Keluar Game")
+      try:
+        opsi = int(input("Pilih menu: "))
+        if opsi == 1:
+          user = input('username: ')
+          pas = input('password: ')
+          if user == 'admin123' and pas == 'admin123':
+            menu_admin(lala, listpemain)
+            continue
+          elif lala.cek(user, pas):
+            p_aktif = listpemain.get_pemain(user)
+            if p_aktif:
+              print(f'\nLogin sukses. Welcome {p_aktif.nama}')
+          else:
+            print('Login gagal. Username atau password salah.')
+
+        elif opsi == 2:
+          user_baru = input('Username: ')
+          pas_baru = input('Password: ')
+          
+          while True:
+            try:
+              print('Pilih role:\n1. fighter\n2. tank\n3. marksman')
+              t = int(input('Pilih: '))
+              if t == 1:
+                role = 'fighter'
+                break
+              elif t == 2:
+                role = 'tank'
+                break
+              elif t == 3:
+                role = 'marksman'
+                break
+              else:
+                print('Pilih antara 1/2/3!!')
+            except ValueError:
+              print('Masukkan angka 1/2/3')
+              
+          if lala.register(user_baru, pas_baru):
+            new_player = Player(user_baru, role)
+            listpemain.tambah_pemain(new_player)
+            print('Registrasi berhasil')
+          else:
+            print('Registrasi gagal. Username sudah terpakai.')
+
+        elif opsi == 3:
+          simpan_game(lala, listpemain)
+          print("Keluar")
+          break
+      except ValueError:
+        print("Masukkan angka yang valid!")
+
+    else:
+      print(f"\n=== MAIN MENU | {lokasi_aktif} | Player: {p_aktif.nama} ({p_aktif.role}) | Lvl: {p_aktif.level} ===")
+      print("1. Pindah Lokasi ")
+      print("2. Battle Survival ") 
+      print("3. Toko Item")
+      print("4. Bounty Board")
+      print("5. Lihat Data (Skill Tree & Log)")
+      print("6. Leaderboard Skor ")
+      print("7. Logout")
+
+      try:
+        opsi = int(input('Pilih: '))
+        if opsi == 1:
+          lokasi_aktif = navigasi_map(lokasi_aktif, game_map)
+
+        elif opsi == 2:
+          print(f'\n⚔️ MODE SURVIVAL - {lokasi_aktif} ⚔️')
+          q_musuh = Survival()
+          
+          if lokasi_aktif == "Desa Petualang":
+            q_musuh.enqueue(Enemy("Slime Hijau", 30, 5, 20))
+            q_musuh.enqueue(Enemy("Kelelawar Gua", 45, 8, 35))
+            q_musuh.enqueue(Enemy("Raja Slime (BOSS)", 70, 12, 60))
+          elif lokasi_aktif == "Hutan Terlarang":
+            q_musuh.enqueue(Enemy("Goblin Pengintai", 60, 12, 50))
+            q_musuh.enqueue(Enemy("Laba-Laba Beracun", 85, 18, 80))
+            q_musuh.enqueue(Enemy("Raja Orc (BOSS)", 120, 22, 120))
+          elif lokasi_aktif == "Gua Naga":
+            q_musuh.enqueue(Enemy("Prajurit Kadal", 110, 20, 130))
+            q_musuh.enqueue(Enemy("Golem Batu", 160, 28, 180))
+            q_musuh.enqueue(Enemy("Naga Hitam (BOSS)", 250, 35, 300))
+            
+          wave = 1
+          while not q_musuh.is_empty() and p_aktif.hp > 0:
+            musuh_sekarang = q_musuh.dequeue()
+            print(f'\nWAVE {wave}')
+            battle_system(p_aktif, musuh_sekarang, history)
+            wave += 1
+
+        elif opsi == 3:
+          shop_menu(p_aktif)
+        
+        elif opsi == 4:
+          print('\n=== 📜 PAPAN BURONAN (BST) 📜 ===')
+          bounty_board.tampilkan_board(bounty_board.root)
+          print('=================================')
+          try:
+            pil_gold = int(input("Masukkan jumlah Hadiah Gold buronan yang ingin dilawan (0 batal): "))
+            if pil_gold > 0:
+              target = bounty_board.search_target(bounty_board.root, pil_gold)
+              if target:
+                print(f"\n=> Target Ditemukan: {target.enemy.nama}!")
+                battle_system(p_aktif, target.enemy, history)
+              else:
+                print("Buronan dengan nilai Gold tersebut tidak ditemukan!")
+                
+          except ValueError:
+            print("Input tidak valid! Harap masukkan angka.")
+
+        elif opsi == 5:
+          print('\nSKILL TREE')
+          tampilkan_skill(p_aktif.skill_tree)
+          print(f"\nMonster yang pernah dikalahkan:")
+          counter = 1
+          for i in p_aktif.buruan:
+            print(f'{counter}. {i}')
+            counter += 1
+          history.tampilkan()
+        
+        elif opsi == 6:
+          semua_pemain = []
+          temp = listpemain.head
+          while temp:
+            semua_pemain.append(temp.player)
+            temp = temp.next
+          
+          leaderboard = manual_quick_sort(semua_pemain)
+          
+          print("\n=== LEADERBOARD SKOR PEMAIN ===")
+          for rank, p in enumerate(leaderboard):
+            print(f"{rank+1}. {p.nama} | Skor: {p.score}")
+
+        elif opsi == 7:
+          p_aktif = None
+          simpan_game(lala, listpemain)
+          print('Berhasil Logout, Data Disimpan')
+          
+      except ValueError:
+        print("Masukkan angka yang valid!")
+        continue
+
+if __name__ == "__main__":
+  main()

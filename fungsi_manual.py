@@ -7,3 +7,11 @@ def minimum(list):
 
 print(minimum([1,4,0]))
 
+def man_isdigit(teks):
+  if len(teks) < 1:
+    return False
+  angka = '0123456789'
+  for i in teks:
+    if i not in angka:
+      return False
+  return True
