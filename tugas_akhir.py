@@ -1,3 +1,4 @@
+from fungsi_manual import minimum
 # CLASS PLAYER, ENEMY, ITEM, SKILL
 class Entitas:
   def __init__(self, nama, hp=100, attack=10):
