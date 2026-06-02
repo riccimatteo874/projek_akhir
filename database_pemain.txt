@@ -1,0 +1,1 @@
+romeo,primod,tank,5,0,0,0

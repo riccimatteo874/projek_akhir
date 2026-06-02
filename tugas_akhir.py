@@ -183,7 +183,7 @@ class GameHistory:
     if not curr:
       print('Belum ada riwayat permainan')
       return
-    print('Riwayat Permainan')
+    print('\nRiwayat Permainan')
     while curr:
       print(f'>> {curr.log}')
       curr = curr.next
@@ -617,7 +617,7 @@ def menu_admin(lala, listpemain):
     print("1. Tambah Karakter (Register Player)")
     print("2. Edit Karakter (Ubah Status)")
     print("3. Hapus Karakter (Banned)")
-    print("4. Atur Level Permainan")
+    print("4. Atur Level Pemain")
     print("5. Melihat Data Pemain")
     print("0. Keluar dari Panel Admin")
     try:
