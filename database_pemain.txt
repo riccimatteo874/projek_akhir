@@ -1,1 +1,2 @@
-romeo,primod,tank,5,0,0,0
+2,2,tank,1,0,0,0,kosong
+1,1,marksman,11,404,1725,1755,Slime Hijau-Kelelawar Gua-Raja Slime (BOSS)-Slime Hijau-Kelelawar Gua-Raja Slime (BOSS)-Slime Hijau-Kelelawar Gua-Raja Slime (BOSS)-Goblin Pengintai-Laba-Laba Beracun-Raja Orc (BOSS)-Goblin Pengintai-Laba-Laba Beracun-Raja Orc (BOSS)-Prajurit Kadal-Golem Batu-Naga Hitam (BOSS)-Naga Hitam (BOSS)

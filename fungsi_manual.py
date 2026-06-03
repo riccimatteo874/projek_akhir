@@ -15,3 +15,15 @@ def man_isdigit(teks):
     if i not in angka:
       return False
   return True
+
+def man_split(teks, pemisah):
+  hasil = []
+  temp_kata = ""
+  for char in teks:
+    if char == pemisah:
+      hasil.append(temp_kata)
+      temp_kata = ""
+    else:
+      temp_kata += char
+  hasil.append(temp_kata)
+  return hasil

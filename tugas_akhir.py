@@ -1,4 +1,4 @@
-from fungsi_manual import minimum, man_isdigit
+from fungsi_manual import minimum, man_isdigit, man_split
 # CLASS PLAYER, ENEMY, ITEM, SKILL
 class Entitas:
   def __init__(self, nama, hp=100, attack=10):
@@ -24,6 +24,7 @@ class Player(Entitas):
     self.inventory = Inventory()
     self.skill_tree = NodeSkill('Lvl 1: Tebasan Pedang')
     self.buruan = set()
+    self.history = GameHistory()
 
     if role == 'tank':
       self.hp = 150
@@ -563,51 +564,80 @@ def battle_system(player, enemy, history):
   enemy.hp = enemy.max_hp
 #===============================================================================================================================
 
-# FUNGSI UNTUK MUAT GAME
+# FUNGSI UNTUK MUAT GAME 
 def muat_game(lala, listpemain):
   try:
-      with open("database_pemain.txt", "r") as file:
-        for baris in file:
-          data = baris.strip().split(',')
+    with open("database_pemain.txt", "r") as file:
+      for baris in file:
+        
+        # 1. Bersihkan enter (\n) di akhir baris secara manual
+        baris_bersih = ""
+        for char in baris:
+          if char != '\n':
+            baris_bersih += char
+            
+        data = man_split(baris_bersih, ',')
+        
+        if len(data) == 8: 
+          nama, pw, role, level, exp, gold, score, teks_riwayat = data
+
+          lala.register(nama, pw)
+
+          p_baru = Player(nama, role)
+          p_baru.level = int(level)
+          p_baru.exp = int(exp)
+          p_baru.gold = int(gold)
+          p_baru.score = int(score)
+
+          tambahan_lvl = p_baru.level - 1
+          p_baru.max_hp += (tambahan_lvl * 20)
+          p_baru.hp = p_baru.max_hp
+          p_baru.attack += (tambahan_lvl * 5)
           
-          if len(data) == 7:
-            nama, pw, role, level, exp, gold, score = data
+          if teks_riwayat != "kosong":
+            daftar_monster = man_split(teks_riwayat, '-')
+            for monster in daftar_monster:
+              if monster: # Mencegah string kosong masuk
+                p_baru.history.add_log(monster)
+                p_baru.buruan.add(monster)
 
-            lala.register(nama, pw)
-
-            p_baru = Player(nama, role)
-            p_baru.level = int(level)
-            p_baru.exp = int(exp)
-            p_baru.gold = int(gold)
-            p_baru.score = int(score)
-
-            tambahan_lvl = p_baru.level - 1
-            p_baru.max_hp += (tambahan_lvl * 20)
-            p_baru.hp = p_baru.max_hp
-            p_baru.attack += (tambahan_lvl * 5)
-
-            listpemain.tambah_pemain(p_baru)
-                
+          listpemain.tambah_pemain(p_baru)
+              
   except FileNotFoundError:
     return
 #================================================================================================
 
 # FUNGSI SIMPAN GAME
 def simpan_game(lala, listpemain):
-    with open("database_pemain.txt", "w") as file:
-      temp = listpemain.head
-      while temp:
-        p = temp.player
+  with open("database_pemain.txt", "w") as file:
+    temp = listpemain.head
+    while temp:
+      p = temp.player
 
-        password_user = ""
-        index = lala.hash(p.nama)
-        for item in lala.table[index]:
-            if item[0] == p.nama:
-                password_user = item[1]
-                break
+      password_user = ""
+      index = lala.hash(p.nama)
+      for item in lala.table[index]:
+        if item[0] == p.nama:
+          password_user = item[1]
+          break
+      
+      teks_riwayat = ""
+      curr_hist = p.history.head
+      while curr_hist:
+        teks_riwayat += curr_hist.log
+        
+        # Jika node selanjutnya masih ada, tambahkan tanda penghubung '-'
+        if curr_hist.next is not None:
+          teks_riwayat += "-"
+          
+        curr_hist = curr_hist.next
+      
+      if not teks_riwayat: 
+        teks_riwayat = "kosong"
 
-        file.write(f"{p.nama},{password_user},{p.role},{p.level},{p.exp},{p.gold},{p.score}\n")
-        temp = temp.next
+      # Menulis 8 data ke dalam file CSV (ditambah teks_riwayat di akhir)
+      file.write(f"{p.nama},{password_user},{p.role},{p.level},{p.exp},{p.gold},{p.score},{teks_riwayat}\n")
+      temp = temp.next
 #===========================================================n=============================================================
 
 #FUNGSI UNTUK MENU ADMIN
@@ -709,7 +739,6 @@ def menu_admin(lala, listpemain):
 def main():
   lala = Login()
   listpemain = PlayerList()
-  history = GameHistory()
   game_map = GameMap()
   lokasi_aktif = 'Desa Petualang'
   p_aktif = None
@@ -819,7 +848,7 @@ def main():
           while not q_musuh.is_empty() and p_aktif.hp > 0:
             musuh_sekarang = q_musuh.dequeue()
             print(f'\nWAVE {wave}')
-            battle_system(p_aktif, musuh_sekarang, history)
+            battle_system(p_aktif, musuh_sekarang, p_aktif.history)
             wave += 1
 
         elif opsi == 3:
@@ -835,7 +864,7 @@ def main():
               target = bounty_board.search_target(bounty_board.root, pil_gold)
               if target:
                 print(f"\n=> Target Ditemukan: {target.enemy.nama}!")
-                battle_system(p_aktif, target.enemy, history)
+                battle_system(p_aktif, target.enemy, p_aktif.history)
               else:
                 print("Buronan dengan nilai Gold tersebut tidak ditemukan!")
                 
@@ -845,12 +874,15 @@ def main():
         elif opsi == 5:
           print('\nSKILL TREE')
           tampilkan_skill(p_aktif.skill_tree)
+
           print(f"\nMonster yang pernah dikalahkan:")
           counter = 1
           for i in p_aktif.buruan:
             print(f'{counter}. {i}')
             counter += 1
-          history.tampilkan()
+
+          print('\nRiwayat Lengkap:')
+          p_aktif.history.tampilkan() 
         
         elif opsi == 6:
           semua_pemain = []
