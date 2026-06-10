@@ -160,77 +160,15 @@ class PlayerList(): # SINGLE LINKED LIST
 #================================================================================================
 
 # CLASS UNTUK HISTORY PERMAINAN
-class NodeHistory: # DOUBLE LINKED LIST
-  def __init__(self, log):
-    self.log = log
-    self.prev = None
-    self.next = None
 
-class GameHistory:
-  def __init__(self):
-    self.head = self.tail = None
-  
-  def add_log(self, log):
-    new_node = NodeHistory(log)
-    if not self.head:
-      self.head = self.tail = new_node
-    else:
-      new_node.prev = self.tail
-      self.tail.next = new_node
-      self.tail = new_node
-  
-  def tampilkan(self):
-    curr = self.head
-    if not curr:
-      print('Belum ada riwayat permainan')
-      return
-    print('\nRiwayat Permainan')
-    while curr:
-      print(f'>> {curr.log}')
-      curr = curr.next
 #===========================================================================================
 
 # CLASS UNTUK SYSTEM BATTLE
-class NodeBattle:
-  def __init__(self, entitas):
-    self.entitas = entitas
-    self.next = None
 
-class Battle: # CIRCULAR LINKED LIST
-  def __init__(self):
-    self.head = None
-    self.current = None
-
-  def tambah_unit(self, unit):
-    new_node = NodeBattle(unit)
-    if not self.head:
-      self.head = new_node
-      new_node.next = self.head
-    else:
-      temp = self.head
-      while temp.next != self.head:
-        temp = temp.next
-      temp.next = new_node
-      new_node.next = self.head
-    self.current = self.head
 #=====================================================================================
 
 # CLASS UNTUK MODE SURVIVAL
-class Survival: # QUEUE
-  def __init__(self):
-    self.antrian = []
 
-  def enqueue(self, enemy):
-    self.antrian.append(enemy)
-
-  def dequeue(self):
-    if self.antrian:
-      return self.antrian.pop(0)
-    else:
-      return None
-
-  def is_empty(self):
-    return len(self.antrian) == 0
 #===============================================================================
 
 # CLASS UNTUK LOGIN PEMAIN
@@ -384,48 +322,11 @@ def menu_pilih_skill_baru(player): # BINARY TREE
         print(f"-> Berhasil Mempelajari Ultimate: {parent_node.right.nama}!")
 
 # FUNGSI UNTUK MENU SHOP
-def shop_menu(player):
-  global toko
-  print(f'\n=====SHOP=====')
-  print(f'gold: {player.gold}')
-  for i, item in enumerate(toko):
-    print(f'{i+1}. {item.nama} {item.jenis} + {item.power}\nprice: {item.harga} gold')
-  
-  try:
-    pilih = int(input('Beli (Input nomor, 0 untuk batal): '))
-    if 0 < pilih <= len(toko): 
-      item = toko[pilih-1]
-      if player.gold >= item.harga:
-        player.gold -= item.harga
-        player.inventory.tambah_item(item)
-        print(f'{item.nama} berhasil dibeli') 
-      else:
-        print('Gold tidak cukup')
-  except ValueError:
-    print('Masukkan nomor yang valid!')
+
 #===========================================================================================
 
 # FUNGSI UNTUK MENGGUNAKAN ITEM DI BATTLE
-def use_item(player):
-  print('\nINVENTORY')
-  if not player.inventory.tampilkan_item():
-    print('Tas Kosong')
-    return False
-  try:
-    pilih = int(input('Gunakan Item (Input nomor, 0 untuk batal): '))
-    if pilih > 0:
-      item = player.inventory.hapus_item(pilih)
-      if item:
-        if item.jenis == 'heal':
-          player.hp = minimum([player.max_hp, player.hp + item.power])
-          print(f'{item.nama} telah digunakan. Hp saat ini: {player.hp}')
-        elif item.jenis == 'buff':
-          player.attack += item.power
-          print(f'{item.nama} telah digunakan. Attack saat ini: {player.attack}')
-        return True
-  except ValueError:
-    print('Masukkan nomor yang valid!')
-  return False
+
 #================================================================================================
 
 # FUNGSI UNTUK MENAMPILKAN SKILL TREE PEMAIN
